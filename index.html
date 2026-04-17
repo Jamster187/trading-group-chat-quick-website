@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trading Ideas Board</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121932;
+      --panel-2: #19213f;
+      --text: #e8ecf3;
+      --muted: #9aa4b2;
+      --accent: #4f8cff;
+      --good: #2fbf71;
+      --bad: #ff6b6b;
+      --border: rgba(255,255,255,0.08);
+      --shadow: 0 10px 30px rgba(0,0,0,0.28);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #0a0f1e 0%, #11162a 100%);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(79,140,255,0.18), rgba(255,255,255,0.03));
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px 0;
+      font-size: 2rem;
+      line-height: 1.1;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 780px;
+      line-height: 1.5;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+    .btn.primary { background: var(--accent); border-color: transparent; }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr 1fr auto;
+      gap: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .toolbar input,
+    .toolbar select {
+      width: 100%;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 14px;
+      border-radius: 12px;
+      outline: none;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .stat {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat .label {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
+
+    .stat .value {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .feed {
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .asset {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .long { color: var(--good); }
+    .short { color: var(--bad); }
+
+    .meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .idea {
+      font-size: 1rem;
+      line-height: 1.6;
+      margin: 10px 0 8px 0;
+      white-space: pre-wrap;
+    }
+
+    .notes {
+      color: #c7d0dc;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .empty,
+    .loading,
+    .error {
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 900px) {
+      .toolbar { grid-template-columns: 1fr 1fr; }
+      .stats { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 600px) {
+      .wrap { padding: 14px; }
+      .toolbar { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Trading Ideas Board</h1>
+      <p>
+        A simple shared board for posting trade and investment ideas. People submit through a Google Form,
+        and this page reads the responses from a Google Sheet.
+      </p>
+      <div class="hero-actions">
+        <a id="submitIdeaBtn" class="btn primary" href="#" target="_blank" rel="noopener noreferrer">Post an idea</a>
+        <button id="refreshBtn" class="btn" type="button">Refresh feed</button>
+      </div>
+    </section>
+
+    <section class="stats" id="stats"></section>
+
+    <section class="toolbar">
+      <input id="searchInput" type="text" placeholder="Search asset, author, idea, notes..." />
+      <select id="directionFilter">
+        <option value="all">All directions</option>
+        <option value="long">Long</option>
+        <option value="short">Short</option>
+      </select>
+      <select id="statusFilter">
+        <option value="all">All statuses</option>
+        <option value="open">Open</option>
+        <option value="closed">Closed</option>
+      </select>
+      <select id="sortBy">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="asset">Asset A-Z</option>
+      </select>
+      <button id="clearFiltersBtn" class="btn" type="button">Clear</button>
+    </section>
+
+    <section id="feed" class="feed">
+      <div class="loading">Loading ideas...</div>
+    </section>
+
+    <p class="footer-note">
+      Dirty MVP setup: GitHub Pages for hosting, Google Form for submissions, Google Sheet as the shared data source.
+      Change the config block near the top of the script to plug in your own form and sheet.
+    </p>
+  </div>
+
+  <script>
+    const CONFIG = {
+      // Replace these with your own values.
+      GOOGLE_FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLSete63LsmovkELRAfx6pc18gYWUX2XttSi28rN5i13UWAo9kw/viewform",
+      SHEET_ID: "REPLACE_WITH_YOUR_SHEET_ID",
+      SHEET_NAME: "Form Responses 1",
+
+      // Expected sheet columns from your Google Form.
+      // Keep your form questions close to these names for easiest setup.
+      COLUMNS: {
+        timestamp: "Timestamp",
+        asset: "Asset",
+        direction: "Direction",
+        timeframe: "Timeframe",
+        status: "Status",
+        author: "Author",
+        idea: "Idea",
+        notes: "Notes"
+      }
+    };
+
+    const state = {
+      rawRows: [],
+      filteredRows: []
+    };
+
+    const els = {
+      submitIdeaBtn: document.getElementById("submitIdeaBtn"),
+      refreshBtn: document.getElementById("refreshBtn"),
+      searchInput: document.getElementById("searchInput"),
+      directionFilter: document.getElementById("directionFilter"),
+      statusFilter: document.getElementById("statusFilter"),
+      sortBy: document.getElementById("sortBy"),
+      clearFiltersBtn: document.getElementById("clearFiltersBtn"),
+      feed: document.getElementById("feed"),
+      stats: document.getElementById("stats")
+    };
+
+    els.submitIdeaBtn.href = CONFIG.GOOGLE_FORM_URL;
+
+    function csvUrl(sheetId, sheetName) {
+      return `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+    }
+
+    async function fetchSheetRows() {
+      if (!CONFIG.SHEET_ID || CONFIG.SHEET_ID.includes("REPLACE_WITH")) {
+        throw new Error("Missing Google Sheet config. Add your SHEET_ID and GOOGLE_FORM_URL in the CONFIG block.");
+      }
+
+      const response = await fetch(csvUrl(CONFIG.SHEET_ID, CONFIG.SHEET_NAME), { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`Could not fetch sheet data (${response.status}). Make sure the sheet tab is public/published.`);
+      }
+
+      const csvText = await response.text();
+      return parseCsv(csvText).map(normalizeRow);
+    }
+
+    function parseCsv(text) {
+      const rows = [];
+      let row = [];
+      let value = "";
+      let inQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const next = text[i + 1];
+
+        if (char === '"') {
+          if (inQuotes && next === '"') {
+            value += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          row.push(value);
+          value = "";
+        } else if ((char === '\n' || char === '\r') && !inQuotes) {
+          if (char === '\r' && next === '\n') i++;
+          row.push(value);
+          rows.push(row);
+          row = [];
+          value = "";
+        } else {
+          value += char;
+        }
+      }
+
+      if (value.length > 0 || row.length > 0) {
+        row.push(value);
+        rows.push(row);
+      }
+
+      if (!rows.length) return [];
+
+      const headers = rows[0];
+      return rows.slice(1).filter(r => r.some(cell => String(cell).trim() !== "")).map(r => {
+        const obj = {};
+        headers.forEach((header, index) => {
+          obj[header] = r[index] ?? "";
+        });
+        return obj;
+      });
+    }
+
+    function normalizeRow(row) {
+      const c = CONFIG.COLUMNS;
+      const direction = String(row[c.direction] || "").trim().toLowerCase();
+      const status = String(row[c.status] || "Open").trim().toLowerCase();
+      const tsRaw = row[c.timestamp] || "";
+      const ts = new Date(tsRaw);
+
+      return {
+        timestampRaw: tsRaw,
+        timestampMs: Number.isNaN(ts.getTime()) ? 0 : ts.getTime(),
+        timestampPretty: Number.isNaN(ts.getTime()) ? tsRaw || "Unknown time" : ts.toLocaleString(),
+        asset: String(row[c.asset] || "Unknown").trim(),
+        direction: direction || "unknown",
+        timeframe: String(row[c.timeframe] || "").trim(),
+        status: status || "open",
+        author: String(row[c.author] || "Anonymous").trim(),
+        idea: String(row[c.idea] || "").trim(),
+        notes: String(row[c.notes] || "").trim(),
+        searchable: [
+          row[c.asset], row[c.direction], row[c.timeframe], row[c.status],
+          row[c.author], row[c.idea], row[c.notes]
+        ].join(" ").toLowerCase()
+      };
+    }
+
+    function applyFilters() {
+      const query = els.searchInput.value.trim().toLowerCase();
+      const direction = els.directionFilter.value;
+      const status = els.statusFilter.value;
+      const sortBy = els.sortBy.value;
+
+      let rows = [...state.rawRows];
+
+      if (query) {
+        rows = rows.filter(r => r.searchable.includes(query));
+      }
+      if (direction !== "all") {
+        rows = rows.filter(r => r.direction === direction);
+      }
+      if (status !== "all") {
+        rows = rows.filter(r => r.status === status);
+      }
+
+      if (sortBy === "newest") {
+        rows.sort((a, b) => b.timestampMs - a.timestampMs);
+      } else if (sortBy === "oldest") {
+        rows.sort((a, b) => a.timestampMs - b.timestampMs);
+      } else if (sortBy === "asset") {
+        rows.sort((a, b) => a.asset.localeCompare(b.asset));
+      }
+
+      state.filteredRows = rows;
+      renderStats(rows);
+      renderFeed(rows);
+    }
+
+    function renderStats(rows) {
+      const openCount = rows.filter(r => r.status === "open").length;
+      const longCount = rows.filter(r => r.direction === "long").length;
+      const shortCount = rows.filter(r => r.direction === "short").length;
+
+      const items = [
+        ["Ideas shown", rows.length],
+        ["Open", openCount],
+        ["Long", longCount],
+        ["Short", shortCount || 0]
+      ];
+
+      els.stats.innerHTML = items.map(([label, value]) => `
+        <div class="stat">
+          <div class="label">${escapeHtml(label)}</div>
+          <div class="value">${escapeHtml(String(value))}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderFeed(rows) {
+      if (!rows.length) {
+        els.feed.innerHTML = '<div class="empty">No ideas match these filters yet.</div>';
+        return;
+      }
+
+      els.feed.innerHTML = rows.map(row => {
+        const directionClass = row.direction === "long" ? "long" : row.direction === "short" ? "short" : "";
+        const ideaHtml = row.idea ? `<div class="idea">${escapeHtml(row.idea)}</div>` : "";
+        const notesHtml = row.notes ? `<div class="notes">${escapeHtml(row.notes)}</div>` : "";
+        const timeframeHtml = row.timeframe ? `<span class="badge">${escapeHtml(row.timeframe)}</span>` : "";
+
+        return `
+          <article class="card">
+            <div class="card-top">
+              <div>
+                <div class="title-row">
+                  <span class="asset">${escapeHtml(row.asset)}</span>
+                  <span class="badge ${directionClass}">${escapeHtml(row.direction.toUpperCase())}</span>
+                  <span class="badge">${escapeHtml(row.status.toUpperCase())}</span>
+                  ${timeframeHtml}
+                </div>
+              </div>
+              <div class="meta">
+                <span>${escapeHtml(row.timestampPretty)}</span>
+              </div>
+            </div>
+            <div class="meta">
+              <span>By ${escapeHtml(row.author)}</span>
+            </div>
+            ${ideaHtml}
+            ${notesHtml}
+          </article>
+        `;
+      }).join("");
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;")
+        .replace(/\n/g, "<br>");
+    }
+
+    async function loadIdeas() {
+      els.feed.innerHTML = '<div class="loading">Loading ideas...</div>';
+      try {
+        state.rawRows = await fetchSheetRows();
+        applyFilters();
+      } catch (error) {
+        els.feed.innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
+        els.stats.innerHTML = "";
+      }
+    }
+
+    els.searchInput.addEventListener("input", applyFilters);
+    els.directionFilter.addEventListener("change", applyFilters);
+    els.statusFilter.addEventListener("change", applyFilters);
+    els.sortBy.addEventListener("change", applyFilters);
+    els.refreshBtn.addEventListener("click", loadIdeas);
+    els.clearFiltersBtn.addEventListener("click", () => {
+      els.searchInput.value = "";
+      els.directionFilter.value = "all";
+      els.statusFilter.value = "all";
+      els.sortBy.value = "newest";
+      applyFilters();
+    });
+
+    loadIdeas();
+  </script>
+</body>
+</html>
