@@ -175,7 +175,7 @@
       color: var(--text);
     }
 
-    .long { color: var(--good); }
+    .long, .up { color: var(--good); }
     .short, .down { color: var(--bad); }
 
     .meta {
@@ -294,14 +294,14 @@
       SHEET_NAME: "Form_Responses",
 
       COLUMNS: {
-        timestamp: "Timestamp",
-        asset: "1. Asset? Example answer: BTC",
-        direction: "2. Direction?",
-        timeframe: "3. Timeframe / Horizon?",
-        status: "4. Status",
-        author: "5. Author (your name)",
-        idea: "6. What is your idea?",
-        notes: "7. Chart URL"
+        timestamp: ["Timestamp"],
+        asset: ["1. Asset? Example answer: BTC", "Asset", "1. Asset? Example answer: BTC "],
+        direction: ["2. Direction?", "Direction"],
+        timeframe: ["3. Timeframe / Horizon?", "Timeframe", "Horizon"],
+        status: ["4. Status", "Status"],
+        author: ["5. Author (your name)", "Author"],
+        idea: ["6. What is your idea?", "Idea"],
+        notes: ["7. Chart URL", "Notes", "Chart URL"]
       }
     };
 
@@ -394,30 +394,44 @@
       return normalizeText(value).toLowerCase();
     }
 
+    function getFirstExistingValue(row, possibleHeaders, fallback = "") {
+      for (const header of possibleHeaders) {
+        if (row[header] !== undefined && String(row[header]).trim() !== "") {
+          return String(row[header]).trim();
+        }
+      }
+      return fallback;
+    }
+
     function normalizeRow(row) {
       const c = CONFIG.COLUMNS;
 
-      const directionRaw = normalizeText(row[c.direction], "unknown");
-      const statusRaw = normalizeText(row[c.status], "open");
-      const tsRaw = normalizeText(row[c.timestamp]);
+      const directionRaw = getFirstExistingValue(row, c.direction, "unknown");
+      const statusRaw = getFirstExistingValue(row, c.status, "open");
+      const tsRaw = getFirstExistingValue(row, c.timestamp, "");
       const ts = new Date(tsRaw);
 
       return {
         timestampRaw: tsRaw,
         timestampMs: Number.isNaN(ts.getTime()) ? 0 : ts.getTime(),
         timestampPretty: Number.isNaN(ts.getTime()) ? (tsRaw || "Unknown time") : ts.toLocaleString(),
-        asset: normalizeText(row[c.asset], "Unknown"),
+        asset: getFirstExistingValue(row, c.asset, "Unknown"),
         direction: directionRaw,
         directionKey: normalizeKey(directionRaw),
-        timeframe: normalizeText(row[c.timeframe]),
+        timeframe: getFirstExistingValue(row, c.timeframe, ""),
         status: statusRaw,
         statusKey: normalizeKey(statusRaw),
-        author: normalizeText(row[c.author], "Anonymous"),
-        idea: normalizeText(row[c.idea]),
-        notes: normalizeText(row[c.notes]),
+        author: getFirstExistingValue(row, c.author, "Anonymous"),
+        idea: getFirstExistingValue(row, c.idea, ""),
+        notes: getFirstExistingValue(row, c.notes, ""),
         searchable: [
-          row[c.asset], row[c.direction], row[c.timeframe], row[c.status],
-          row[c.author], row[c.idea], row[c.notes]
+          getFirstExistingValue(row, c.asset, ""),
+          getFirstExistingValue(row, c.direction, ""),
+          getFirstExistingValue(row, c.timeframe, ""),
+          getFirstExistingValue(row, c.status, ""),
+          getFirstExistingValue(row, c.author, ""),
+          getFirstExistingValue(row, c.idea, ""),
+          getFirstExistingValue(row, c.notes, "")
         ].join(" ").toLowerCase()
       };
     }
