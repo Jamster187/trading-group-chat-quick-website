@@ -172,10 +172,11 @@
       font-weight: 700;
       border: 1px solid var(--border);
       background: var(--panel);
+      color: var(--text);
     }
 
     .long { color: var(--good); }
-    .short { color: var(--bad); }
+    .short, .down { color: var(--bad); }
 
     .meta {
       display: flex;
@@ -197,6 +198,7 @@
       font-size: 0.95rem;
       line-height: 1.5;
       white-space: pre-wrap;
+      word-break: break-word;
     }
 
     .empty,
@@ -216,6 +218,15 @@
       color: var(--muted);
       font-size: 0.9rem;
       line-height: 1.5;
+    }
+
+    a.inline-link {
+      color: #8bb2ff;
+      text-decoration: none;
+    }
+
+    a.inline-link:hover {
+      text-decoration: underline;
     }
 
     @media (max-width: 900px) {
@@ -248,16 +259,16 @@
     <section class="stats" id="stats"></section>
 
     <section class="toolbar">
-      <input id="searchInput" type="text" placeholder="Search asset, author, idea, notes..." />
+      <input id="searchInput" type="text" placeholder="Search asset, author, idea, chart link..." />
       <select id="directionFilter">
         <option value="all">All directions</option>
         <option value="long">Long</option>
         <option value="short">Short</option>
+        <option value="up">Up</option>
+        <option value="down">Down</option>
       </select>
       <select id="statusFilter">
         <option value="all">All statuses</option>
-        <option value="open">Open</option>
-        <option value="closed">Closed</option>
       </select>
       <select id="sortBy">
         <option value="newest">Newest first</option>
@@ -272,29 +283,25 @@
     </section>
 
     <p class="footer-note">
-      Dirty MVP setup: GitHub Pages for hosting, Google Form for submissions, Google Sheet as the shared data source.
-      Change the config block near the top of the script to plug in your own form and sheet.
+      GitHub Pages for hosting, Google Form for submissions, Google Sheet as the shared data source.
     </p>
   </div>
 
   <script>
     const CONFIG = {
-      // Replace these with your own values.
       GOOGLE_FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLSete63LsmovkELRAfx6pc18gYWUX2XttSi28rN5i13UWAo9kw/viewform",
       SHEET_ID: "1-dMpO77IzGEEHcb-qMy3FLR3dmnez2u7B947EaiXxdc",
-      SHEET_NAME: "Form Responses 1",
+      SHEET_NAME: "Form_Responses",
 
-      // Expected sheet columns from your Google Form.
-      // Keep your form questions close to these names for easiest setup.
       COLUMNS: {
         timestamp: "Timestamp",
-        asset: "Asset",
-        direction: "Direction",
-        timeframe: "Timeframe",
-        status: "Status",
-        author: "Author",
-        idea: "Idea",
-        notes: "Notes"
+        asset: "1. Asset? Example answer: BTC",
+        direction: "2. Direction?",
+        timeframe: "3. Timeframe / Horizon?",
+        status: "4. Status",
+        author: "5. Author (your name)",
+        idea: "6. What is your idea?",
+        notes: "7. Chart URL"
       }
     };
 
@@ -322,13 +329,9 @@
     }
 
     async function fetchSheetRows() {
-      if (!CONFIG.SHEET_ID || CONFIG.SHEET_ID.includes("REPLACE_WITH")) {
-        throw new Error("Missing Google Sheet config. Add your SHEET_ID and GOOGLE_FORM_URL in the CONFIG block.");
-      }
-
       const response = await fetch(csvUrl(CONFIG.SHEET_ID, CONFIG.SHEET_NAME), { cache: "no-store" });
       if (!response.ok) {
-        throw new Error(`Could not fetch sheet data (${response.status}). Make sure the sheet tab is public/published.`);
+        throw new Error(`Could not fetch sheet data (${response.status}). Make sure the sheet is shared and the tab name is correct.`);
       }
 
       const csvText = await response.text();
@@ -383,29 +386,66 @@
       });
     }
 
+    function normalizeText(value, fallback = "") {
+      return String(value ?? fallback).trim();
+    }
+
+    function normalizeKey(value) {
+      return normalizeText(value).toLowerCase();
+    }
+
     function normalizeRow(row) {
       const c = CONFIG.COLUMNS;
-      const direction = String(row[c.direction] || "").trim().toLowerCase();
-      const status = String(row[c.status] || "Open").trim().toLowerCase();
-      const tsRaw = row[c.timestamp] || "";
+
+      const directionRaw = normalizeText(row[c.direction], "unknown");
+      const statusRaw = normalizeText(row[c.status], "open");
+      const tsRaw = normalizeText(row[c.timestamp]);
       const ts = new Date(tsRaw);
 
       return {
         timestampRaw: tsRaw,
         timestampMs: Number.isNaN(ts.getTime()) ? 0 : ts.getTime(),
-        timestampPretty: Number.isNaN(ts.getTime()) ? tsRaw || "Unknown time" : ts.toLocaleString(),
-        asset: String(row[c.asset] || "Unknown").trim(),
-        direction: direction || "unknown",
-        timeframe: String(row[c.timeframe] || "").trim(),
-        status: status || "open",
-        author: String(row[c.author] || "Anonymous").trim(),
-        idea: String(row[c.idea] || "").trim(),
-        notes: String(row[c.notes] || "").trim(),
+        timestampPretty: Number.isNaN(ts.getTime()) ? (tsRaw || "Unknown time") : ts.toLocaleString(),
+        asset: normalizeText(row[c.asset], "Unknown"),
+        direction: directionRaw,
+        directionKey: normalizeKey(directionRaw),
+        timeframe: normalizeText(row[c.timeframe]),
+        status: statusRaw,
+        statusKey: normalizeKey(statusRaw),
+        author: normalizeText(row[c.author], "Anonymous"),
+        idea: normalizeText(row[c.idea]),
+        notes: normalizeText(row[c.notes]),
         searchable: [
           row[c.asset], row[c.direction], row[c.timeframe], row[c.status],
           row[c.author], row[c.idea], row[c.notes]
         ].join(" ").toLowerCase()
       };
+    }
+
+    function getUniqueStatusKeys(rows) {
+      const seen = new Map();
+      rows.forEach(r => {
+        if (!r.statusKey) return;
+        if (!seen.has(r.statusKey)) seen.set(r.statusKey, r.status);
+      });
+      return [...seen.entries()];
+    }
+
+    function populateStatusFilter(rows) {
+      const current = els.statusFilter.value;
+      const options = ['<option value="all">All statuses</option>']
+        .concat(
+          getUniqueStatusKeys(rows).map(([key, label]) =>
+            `<option value="${escapeAttr(key)}">${escapeHtml(label)}</option>`
+          )
+        );
+
+      els.statusFilter.innerHTML = options.join("");
+      if ([...els.statusFilter.options].some(opt => opt.value === current)) {
+        els.statusFilter.value = current;
+      } else {
+        els.statusFilter.value = "all";
+      }
     }
 
     function applyFilters() {
@@ -420,10 +460,10 @@
         rows = rows.filter(r => r.searchable.includes(query));
       }
       if (direction !== "all") {
-        rows = rows.filter(r => r.direction === direction);
+        rows = rows.filter(r => r.directionKey === direction);
       }
       if (status !== "all") {
-        rows = rows.filter(r => r.status === status);
+        rows = rows.filter(r => r.statusKey === status);
       }
 
       if (sortBy === "newest") {
@@ -440,15 +480,15 @@
     }
 
     function renderStats(rows) {
-      const openCount = rows.filter(r => r.status === "open").length;
-      const longCount = rows.filter(r => r.direction === "long").length;
-      const shortCount = rows.filter(r => r.direction === "short").length;
+      const openLikeCount = rows.filter(r => r.statusKey === "open" || r.statusKey === "waiting").length;
+      const longLikeCount = rows.filter(r => r.directionKey === "long" || r.directionKey === "up").length;
+      const shortLikeCount = rows.filter(r => r.directionKey === "short" || r.directionKey === "down").length;
 
       const items = [
         ["Ideas shown", rows.length],
-        ["Open", openCount],
-        ["Long", longCount],
-        ["Short", shortCount || 0]
+        ["Open / Waiting", openLikeCount],
+        ["Long / Up", longLikeCount],
+        ["Short / Down", shortLikeCount]
       ];
 
       els.stats.innerHTML = items.map(([label, value]) => `
@@ -466,9 +506,11 @@
       }
 
       els.feed.innerHTML = rows.map(row => {
-        const directionClass = row.direction === "long" ? "long" : row.direction === "short" ? "short" : "";
+        const directionClass = ["long", "short", "up", "down"].includes(row.directionKey) ? row.directionKey : "";
         const ideaHtml = row.idea ? `<div class="idea">${escapeHtml(row.idea)}</div>` : "";
-        const notesHtml = row.notes ? `<div class="notes">${escapeHtml(row.notes)}</div>` : "";
+        const notesHtml = row.notes
+          ? `<div class="notes">${linkifyAndEscape(row.notes)}</div>`
+          : "";
         const timeframeHtml = row.timeframe ? `<span class="badge">${escapeHtml(row.timeframe)}</span>` : "";
 
         return `
@@ -506,10 +548,27 @@
         .replace(/\n/g, "<br>");
     }
 
+    function escapeAttr(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function linkifyAndEscape(text) {
+      const escaped = escapeHtml(text);
+      return escaped.replace(
+        /(https?:\/\/[^\s<]+)/g,
+        '<a class="inline-link" href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+      );
+    }
+
     async function loadIdeas() {
       els.feed.innerHTML = '<div class="loading">Loading ideas...</div>';
       try {
         state.rawRows = await fetchSheetRows();
+        populateStatusFilter(state.rawRows);
         applyFilters();
       } catch (error) {
         els.feed.innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
